@@ -12,6 +12,7 @@ import (
 	"github.com/fatedier/frp/pkg/config"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/config/v1/validation"
+	"github.com/fatedier/frp/pkg/policy/security"
 	"github.com/fatedier/frp/pkg/util/log"
 )
 
@@ -79,7 +80,7 @@ func Close(uid string) bool {
 }
 
 // RunClientWithUid runs the client with a given UID and config file path.
-func RunClientWithUid(uid string, cfgFilePath string, strictConfigMode bool) error {
+func RunClientWithUid(uid string, cfgFilePath string, strictConfigMode bool, unsafeFeatures *security.UnsafeFeatures) error {
 	cfg, proxyCfgs, visitorCfgs, isLegacyFormat, err := config.LoadClientConfig(cfgFilePath, strictConfigMode)
 	if err != nil {
 		return err
@@ -89,7 +90,7 @@ func RunClientWithUid(uid string, cfgFilePath string, strictConfigMode bool) err
 			"Please use yaml/json/toml format instead!\n")
 	}
 
-	warning, err := validation.ValidateAllClientConfig(cfg, proxyCfgs, visitorCfgs)
+	warning, err := validation.ValidateAllClientConfig(cfg, proxyCfgs, visitorCfgs, unsafeFeatures)
 	if warning != nil {
 		fmt.Printf("WARNING: %v\n", warning)
 	}
@@ -99,18 +100,18 @@ func RunClientWithUid(uid string, cfgFilePath string, strictConfigMode bool) err
 	if IsRunning(uid) {
 		Close(uid)
 	}
-	return startServiceWithUid(uid, cfg, proxyCfgs, visitorCfgs, cfgFilePath)
+	return startServiceWithUid(uid, cfg, proxyCfgs, visitorCfgs, unsafeFeatures, cfgFilePath)
 }
 
 // RunMultipleClientsWithUid 运行多个带有 UID 控制的客户端服务
 // 接收包含 UID 和路径的结构体列表
-func RunMultipleClientsWithUid(configs []RunMultipleClientConfig, strictConfigMode bool) error {
+func RunMultipleClientsWithUid(configs []RunMultipleClientConfig, strictConfigMode bool, unsafeFeatures *security.UnsafeFeatures) error {
 	var wg sync.WaitGroup
 	for _, config := range configs {
 		wg.Add(1)
 		go func(cfg RunMultipleClientConfig) {
 			defer wg.Done()
-			err := RunClientWithUid(cfg.Uid, cfg.Path, strictConfigMode)
+			err := RunClientWithUid(cfg.Uid, cfg.Path, strictConfigMode, unsafeFeatures)
 			if err != nil {
 				fmt.Printf("frpc service error for UID [%s] with config file [%s]: %v\n", cfg.Uid, cfg.Path, err)
 			}
@@ -128,6 +129,7 @@ func startServiceWithUid(
 	cfg *v1.ClientCommonConfig,
 	proxyCfgs []v1.ProxyConfigurer,
 	visitorCfgs []v1.VisitorConfigurer,
+	unsafeFeatures *security.UnsafeFeatures,
 	cfgFile string,
 ) error {
 	defer delServiceByUid(uid)
@@ -146,6 +148,7 @@ func startServiceWithUid(
 		Common:         cfg,
 		ProxyCfgs:      proxyCfgs,
 		VisitorCfgs:    visitorCfgs,
+		UnsafeFeatures: unsafeFeatures,
 		ConfigFilePath: cfgFile,
 	})
 	if err != nil {

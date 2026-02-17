@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/fatedier/frp/cmd/frpc/sub"
+	"github.com/fatedier/frp/pkg/policy/security"
 	"github.com/fatedier/frp/pkg/util/system"
 	"github.com/fatedier/frp/pkg/util/version"
 	"strings"
@@ -17,7 +18,8 @@ func RunClientWithUid(uid string, cfgFilePath string, isStrictConfigMode bool, i
 	if isShowVersion {
 		fmt.Println(version.Full())
 	}
-	err := sub.RunClientWithUid(uid, cfgFilePath, isStrictConfigMode)
+	unsafeFeatures := security.NewUnsafeFeatures(nil)
+	err := sub.RunClientWithUid(uid, cfgFilePath, isStrictConfigMode, unsafeFeatures)
 	if err != nil {
 		return err.Error()
 	}
@@ -41,7 +43,8 @@ func RunMultipleClientsWithUid(runMultipleClientConfigListJson string, isStrictC
 	}
 
 	// 调用子模块的函数
-	err = sub.RunMultipleClientsWithUid(runMultipleClientConfigList, isStrictConfigMode)
+	unsafeFeatures := security.NewUnsafeFeatures(nil)
+	err = sub.RunMultipleClientsWithUid(runMultipleClientConfigList, isStrictConfigMode, unsafeFeatures)
 	if err != nil {
 		return err.Error()
 	}
